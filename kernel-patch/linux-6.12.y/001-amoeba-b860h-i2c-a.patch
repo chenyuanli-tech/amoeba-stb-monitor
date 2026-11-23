@@ -1,0 +1,42 @@
+From: Amoeba STB Mini Monitor
+Subject: [PATCH] arm64: dts: meson-gxl: enable I2C_A on B860H D1/E1 pins
+
+The GXL pinctrl maps I2C_A SDA to GPIODV_24 and SCK to GPIODV_25.
+These pins are also UART_B TX/RX, so keep UART_B disabled while I2C_A
+owns the pins. Enable the I2C controller and select the I2C_A pin group.
+
+Based on the B860H DTS in ophub/linux-6.12.y (blob
+956941fb21fe12e0527ebc37aa19476a9f9b2ca8).
+
+IMPORTANT: this configures SoC pins GPIODV_24/25. It does not prove that
+the B860H board's X2 TTL header is physically routed to these exact pads.
+Verify the PCB route before wiring or booting with the OLED attached.
+
+---
+ arch/arm64/boot/dts/amlogic/meson-gxl-s905x-b860h.dts | 16 ++++++++++++++++
+ 1 file changed, 16 insertions(+)
+
+diff --git a/arch/arm64/boot/dts/amlogic/meson-gxl-s905x-b860h.dts b/arch/arm64/boot/dts/amlogic/meson-gxl-s905x-b860h.dts
+index 956941fb21fe..000000000000 100644
+--- a/arch/arm64/boot/dts/amlogic/meson-gxl-s905x-b860h.dts
++++ b/arch/arm64/boot/dts/amlogic/meson-gxl-s905x-b860h.dts
+@@ -17,3 +17,19 @@
+ &sdio_pwrseq {
+     reset-gpios = <&gpio GPIODV_27 GPIO_ACTIVE_LOW>;
+ };
++
++/*
++ * Amoeba STB Mini Monitor:
++ * I2C_A SDA = GPIODV_24, SCK/SCL = GPIODV_25.
++ * These pads are shared with UART_B TX/RX.
++ */
++&uart_B {
++    status = "disabled";
++};
++
++&i2c_A {
++    pinctrl-0 = <&i2c_a_pins>;
++    pinctrl-names = "default";
++    clock-frequency = <100000>;
++    status = "okay";
++};
