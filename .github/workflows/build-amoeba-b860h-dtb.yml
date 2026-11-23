@@ -37,7 +37,7 @@ jobs:
           kernel_patch: kernel-patch
           auto_patch: true
           delete_source: true
-          docker_image: resolute
+          docker_image: ophub/armbian-trixie:amd64
 
       - name: Assemble terminal installer
         shell: bash
