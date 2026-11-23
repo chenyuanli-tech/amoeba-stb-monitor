@@ -12,6 +12,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: amoeba-b860h-dtb-build
+  cancel-in-progress: true
+
 jobs:
   build-dtb:
     runs-on: ubuntu-latest
@@ -33,22 +37,30 @@ jobs:
           kernel_patch: kernel-patch
           auto_patch: true
           delete_source: true
-          docker_image: trixie
+          docker_image: ophub/armbian-resolute:arm64
 
       - name: Assemble terminal installer
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p release
-          DEB="$(find compile-kernel/output -type f -name '*dtb*.deb' -print -quit)"
-          if [[ -z "$DEB" ]]; then
-            echo "No DTB Debian package found in compile-kernel/output"
-            find compile-kernel/output -maxdepth 3 -type f -print || true
+          mkdir -p release/extracted
+          OUTPUT="/home/runner/work/_actions/ophub/amlogic-s9xxx-armbian/main/compile-kernel/output"
+          ARCHIVE="$(find "$OUTPUT" -maxdepth 1 -type f -name '*.tar.gz' -print -quit)"
+          if [[ -z "$ARCHIVE" ]]; then
+            echo "No DTB archive found in $OUTPUT"
+            find "$OUTPUT" -maxdepth 2 -type f -print || true
             exit 1
           fi
-          cp "$DEB" release/
-          cp scripts/install-amoeba-dtb.sh release/install-amoeba-dtb.sh
-          cp scripts/rollback-amoeba-dtb.sh release/rollback-amoeba-dtb.sh
+          tar -xzf "$ARCHIVE" -C release/extracted
+          DTB="$(find release/extracted -type f -name 'meson-gxl-s905x-b860h.dtb' -print -quit)"
+          if [[ -z "$DTB" ]]; then
+            echo "Target B860H DTB not found in Ophub archive"
+            find release/extracted -type f -name '*.dtb' -print || true
+            exit 1
+          fi
+          cp "$DTB" release/meson-gxl-s905x-b860h.dtb
+          cp scripts/install-amoeba-dtb.sh release/
+          cp scripts/rollback-amoeba-dtb.sh release/
           cat > release/README-INSTALL.txt <<'EOF'
           AMOEBA B860H V1 - I2C_A DTB package
           Install: sudo bash install-amoeba-dtb.sh
@@ -56,7 +68,7 @@ jobs:
           Installer backs up the current DTB and does not reboot automatically.
           IMPORTANT: verify physical X2-to-GPIODV_24/25 routing before connecting OLED.
           EOF
-          (cd release && zip -9 ../amoeba-b860h-i2c-installer.zip ./*)
+          (cd release && zip -9 ../amoeba-b860h-i2c-installer.zip meson-gxl-s905x-b860h.dtb install-amoeba-dtb.sh rollback-amoeba-dtb.sh README-INSTALL.txt)
 
       - name: Upload build output
         uses: actions/upload-artifact@v4
