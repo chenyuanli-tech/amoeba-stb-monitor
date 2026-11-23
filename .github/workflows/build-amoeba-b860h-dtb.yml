@@ -1,0 +1,75 @@
+name: Build Amoeba B860H I2C DTB
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/build-amoeba-b860h-dtb.yml"
+      - "kernel-patch/**"
+      - "scripts/**"
+
+permissions:
+  contents: write
+
+jobs:
+  build-dtb:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Amoeba repository
+        uses: actions/checkout@v4
+
+      - name: Build Ophub DTB package
+        uses: ophub/amlogic-s9xxx-armbian@main
+        with:
+          build_target: kernel
+          kernel_source: ophub
+          kernel_version: 6.12.114
+          kernel_auto: false
+          kernel_package: dtbs
+          kernel_toolchain: gcc
+          kernel_sign: -amoeba
+          kernel_config: false
+          kernel_patch: kernel-patch
+          auto_patch: true
+          delete_source: true
+          docker_image: trixie
+
+      - name: Assemble terminal installer
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release
+          DEB="$(find compile-kernel/output -type f -name '*dtb*.deb' -print -quit)"
+          if [[ -z "$DEB" ]]; then
+            echo "No DTB Debian package found in compile-kernel/output"
+            find compile-kernel/output -maxdepth 3 -type f -print || true
+            exit 1
+          fi
+          cp "$DEB" release/
+          cp scripts/install-amoeba-dtb.sh release/install-amoeba-dtb.sh
+          cp scripts/rollback-amoeba-dtb.sh release/rollback-amoeba-dtb.sh
+          cat > release/README-INSTALL.txt <<'EOF'
+          AMOEBA B860H V1 - I2C_A DTB package
+          Install: sudo bash install-amoeba-dtb.sh
+          Rollback: sudo bash rollback-amoeba-dtb.sh
+          Installer backs up the current DTB and does not reboot automatically.
+          IMPORTANT: verify physical X2-to-GPIODV_24/25 routing before connecting OLED.
+          EOF
+          (cd release && zip -9 ../amoeba-b860h-i2c-installer.zip ./*)
+
+      - name: Upload build output
+        uses: actions/upload-artifact@v4
+        with:
+          name: amoeba-b860h-i2c-installer
+          path: amoeba-b860h-i2c-installer.zip
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: amoeba-dtb-6.12.114-${{ github.run_number }}
+          name: Amoeba B860H DTB 6.12.114 build ${{ github.run_number }}
+          prerelease: true
+          files: amoeba-b860h-i2c-installer.zip
