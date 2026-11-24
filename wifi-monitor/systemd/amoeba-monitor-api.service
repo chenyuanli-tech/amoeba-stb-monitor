@@ -1,0 +1,27 @@
+[Unit]
+Description=Amoeba STB Monitor HTTP API
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=amoeba-monitor
+Group=amoeba-monitor
+Environment=AMOEBA_API_HOST=0.0.0.0
+Environment=AMOEBA_API_PORT=8765
+Environment=AMOEBA_STORAGE_PATH=/mnt/amoeba
+Environment=AMOEBA_INTERFACES=eth0,eth1
+ExecStart=/usr/bin/python3 /opt/amoeba-stb-monitor/monitor_api.py
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ReadOnlyPaths=/proc /sys /mnt/amoeba
+
+[Install]
+WantedBy=multi-user.target
